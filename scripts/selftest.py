@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import sys
+import tempfile
 import traceback
 from pathlib import Path
 
@@ -136,7 +137,6 @@ def test_baseline_cv_protocols_differ():
 @check
 def test_submission_roundtrip():
     """A hand-crafted prediction frame round-trips to valid parquet."""
-    import tempfile
     train = _synthetic_train(5)
     test = pd.DataFrame(
         {
@@ -157,7 +157,6 @@ def test_submission_roundtrip():
 @check
 def test_in_style_pool_loader():
     """The public-pool loader normalises foreign column names onto our schema."""
-    import tempfile
     from pathlib import Path
 
     root = Path(tempfile.mkdtemp())
