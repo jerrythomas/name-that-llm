@@ -1062,9 +1062,9 @@ print(submission["model"].value_counts().to_frame("n").assign(share=lambda d: d[
     ),
     code(
         """
-# On Kaggle the grader expects the file at /kaggle/working/submission.parquet
-# submit.write_submission(submission, "outputs/submission.parquet")
-print(submission["model"].value_counts().head(20))
+# Write the submission file for the Kaggle grader
+submit.write_submission(submission, "/kaggle/working/submission.parquet")
+print("Written: /kaggle/working/submission.parquet")
 """
     ),
 )
