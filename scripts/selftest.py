@@ -220,10 +220,10 @@ def test_kaggle_mount_layouts():
 @check
 def test_stack_shapes():
     """The stack must return one label per passage and keep the class order."""
-    train = data.load_train()
-    texts = train["text"].to_numpy(dtype=object)[:400]
-    y = train["model"].to_numpy(dtype=object)[:400]
-    g = train["prompt_id"].to_numpy(dtype=object)[:400]
+    train = _synthetic_train(10)
+    texts = train["text"].to_numpy(dtype=object)
+    y = train["model"].to_numpy(dtype=object)
+    g = train["prompt_id"].to_numpy(dtype=object)
     model = pipeline.StackModel(pipeline.StackConfig(views=("funcon",)))
     model.fit(texts, y, groups=g)
     scores, groups = model.decision_function(texts)
