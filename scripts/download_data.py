@@ -27,10 +27,15 @@ def main() -> int:
     print(f"Downloading {COMPETITION} -> {DEST}")
     result = subprocess.run(
         [
-            sys.executable, "-m", "kaggle",
-            "competitions", "download",
-            "-c", COMPETITION,
-            "-p", str(DEST),
+            sys.executable,
+            "-m",
+            "kaggle",
+            "competitions",
+            "download",
+            "-c",
+            COMPETITION,
+            "-p",
+            str(DEST),
         ],
         check=False,
     )

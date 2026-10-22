@@ -51,9 +51,7 @@ def add_text_features(df: pd.DataFrame, text_col: str = "text") -> pd.DataFrame:
 
     words = texts.str.findall(_WORD_RE)
     out["n_words"] = words.apply(len)
-    out["avg_word_len"] = words.apply(
-        lambda ws: sum(len(w) for w in ws) / len(ws) if ws else 0.0
-    )
+    out["avg_word_len"] = words.apply(lambda ws: sum(len(w) for w in ws) / len(ws) if ws else 0.0)
     out["lexical_diversity"] = words.apply(
         lambda ws: len(set(w.lower() for w in ws)) / len(ws) if ws else 0.0
     )
@@ -63,9 +61,7 @@ def add_text_features(df: pd.DataFrame, text_col: str = "text") -> pd.DataFrame:
     out["avg_sent_len"] = out["n_words"] / out["n_sentences"].clip(lower=1)
 
     for name, char in _PUNCT.items():
-        out[f"punct_{name}"] = texts.str.count(re.escape(char)) / out["n_words"].clip(
-            lower=1
-        )
+        out[f"punct_{name}"] = texts.str.count(re.escape(char)) / out["n_words"].clip(lower=1)
 
     # Markdown / structure artifacts (only "light cleanup" was applied per the
     # data description, so in-passage markdown likely survives).

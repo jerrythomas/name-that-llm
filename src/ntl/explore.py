@@ -64,9 +64,7 @@ def sample_passages(
 ) -> list[str]:
     """Random passages from a given model, for eyeballing its style."""
     subset = train[train[TARGET_COL] == model]
-    return (
-        subset[TEXT_COL].sample(n=min(n, len(subset)), random_state=random_state).tolist()
-    )
+    return subset[TEXT_COL].sample(n=min(n, len(subset)), random_state=random_state).tolist()
 
 
 def same_prompt_responses(
@@ -161,9 +159,7 @@ def family_fingerprints(
     }
 
 
-def repeated_phrases(
-    train: pd.DataFrame, model: str, top_n: int = 15, n: int = 2
-) -> pd.DataFrame:
+def repeated_phrases(train: pd.DataFrame, model: str, top_n: int = 15, n: int = 2) -> pd.DataFrame:
     """The most repeated n-grams of a single model.
 
     This is the "does it have verbal tics?" question asked in the crudest
@@ -181,9 +177,7 @@ def repeated_phrases(
     totals = np.asarray(counts.sum(axis=0)).ravel()
     vocab = vec.get_feature_names_out()
     order = np.argsort(totals)[::-1][:top_n]
-    return pd.DataFrame(
-        {"phrase": vocab[order], "count": totals[order].astype(int)}
-    )
+    return pd.DataFrame({"phrase": vocab[order], "count": totals[order].astype(int)})
 
 
 def sentence_openers(
@@ -207,9 +201,9 @@ def sentence_openers(
                 continue
             opener = " ".join(words[:n_words])
             counter[opener] = counter.get(opener, 0) + 1
-    frame = pd.DataFrame(
-        {"opener": list(counter), "count": list(counter.values())}
-    ).sort_values("count", ascending=False)
+    frame = pd.DataFrame({"opener": list(counter), "count": list(counter.values())}).sort_values(
+        "count", ascending=False
+    )
     return frame.head(top_n).reset_index(drop=True)
 
 

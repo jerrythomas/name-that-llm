@@ -47,9 +47,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import adjusted_rand_score
 
 
-def content_distance_matrix(
-    texts: Sequence[str], stop_words: str = "english"
-) -> np.ndarray:
+def content_distance_matrix(texts: Sequence[str], stop_words: str = "english") -> np.ndarray:
     """Pairwise cosine distance in content-word TF-IDF space."""
     vec = TfidfVectorizer(stop_words=stop_words, sublinear_tf=True, dtype=np.float32)
     X = vec.fit_transform(texts)
@@ -92,9 +90,7 @@ def infer_groups(
     cols = order[:, :k].ravel()
     keep = D[rows, cols] < cut
 
-    graph = sparse.csr_matrix(
-        (np.ones(int(keep.sum())), (rows[keep], cols[keep])), shape=(n, n)
-    )
+    graph = sparse.csr_matrix((np.ones(int(keep.sum())), (rows[keep], cols[keep])), shape=(n, n))
     _, labels = connected_components(graph, directed=False)
     return labels
 
@@ -105,9 +101,7 @@ def group_sizes(groups: np.ndarray) -> np.ndarray:
     return np.sort(counts)[::-1]
 
 
-def neighbour_purity(
-    distance: np.ndarray, true_groups: np.ndarray, k: int = 5
-) -> float:
+def neighbour_purity(distance: np.ndarray, true_groups: np.ndarray, k: int = 5) -> float:
     """Share of nearest neighbours that share the passage's true group."""
     n = len(true_groups)
     if n < 2:
@@ -121,9 +115,7 @@ def neighbour_purity(
     return same / (n * k)
 
 
-def group_report(
-    groups: np.ndarray, true_groups: np.ndarray | None = None
-) -> dict:
+def group_report(groups: np.ndarray, true_groups: np.ndarray | None = None) -> dict:
     """Summarise a recovered grouping.
 
     With ``true_groups`` present, reports the adjusted Rand index (does the

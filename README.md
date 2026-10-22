@@ -1,5 +1,7 @@
 # Name That LLM — Kaggle competition scaffold
 
+[![CI](https://github.com/jerrythomas/name-that-llm/actions/workflows/ci.yml/badge.svg)](https://github.com/jerrythomas/name-that-llm/actions/workflows/ci.yml)
+
 Identify which of **18 frontier LLMs** wrote a given passage (authorship
 attribution). Evaluated on **balanced accuracy** (mean per-class recall).
 
@@ -123,6 +125,37 @@ scripts/selftest.py        # fast invariant checks (no heavy training)
 uv run python scripts/selftest.py     # 13 checks, a few seconds
 ```
 
+## Runbook on Kaggle
+
+1. **Open the notebook from the competition page** — *Code → Add Code → Your
+   Script* (or import the `.ipynb` into a notebook that is *attached to the
+   competition*).  A generic notebook has no competition data mounted, and no
+   path-guessing can conjure it.
+2. Upload `notebooks/02_style_and_structure.ipynb`.  It needs no
+   `pip install` and no internet: the whole `ntl` package is inlined in cell 2.
+3. **Run All.**  The first cell prints where the loader expects the data and
+   dumps the mount layout, so a missing attachment is obvious immediately:
+
+   ```
+   data locations:
+     competition_dirs      ['/kaggle/input/datasets/...']
+     attached_datasets     ['/kaggle/input/datasets/prvsiyan/...']
+     local_data_dir        /kaggle/working/data/raw
+   mount tree:
+     datasets/
+       competitions/
+         name-that-llm/
+   ```
+4. Attach the public in-style passage pool as an *Add Input* dataset and
+   re-run — the loader picks it up automatically:
+
+   ```python
+   from ntl import data
+   pool = data.load_in_style_pool()
+   print(data.describe_in_style_pool(pool))   # rows, per-model counts, coverage
+   ```
+5. Write the submission with `ntl.submit` (columns `id, model`, parquet).
+
 ## Repository and CI
 
 The repository holds the package code and the notebook builder — **not** the
@@ -139,8 +172,10 @@ artefact.
    both notebooks is byte-identical to `src/ntl`
 4. `scripts/build_bundle.py` — the flat bundle still builds
 
-On `main`, a second job regenerates notebook 02 and re-inlines the package
-into both notebooks, and commits the result if anything changed.
+CI is pure verification: it never rewrites the notebooks, because
+regenerating them would strip the stored outputs.  A red build means the
+notebooks and their sources have drifted — run `make notebook` locally and
+commit the result.
 
 The same steps are available locally:
 

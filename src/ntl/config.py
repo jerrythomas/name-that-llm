@@ -175,9 +175,7 @@ def resolve_path(filename: str) -> Path:
         "competition page so Kaggle mounts it, or download the data with:"
     )
     lines.append("  uv run kaggle competitions download -c name-that-llm -p data/raw")
-    lines.append(
-        "(requires accepting the competition rules and a kaggle.json API token)"
-    )
+    lines.append("(requires accepting the competition rules and a kaggle.json API token)")
     raise FileNotFoundError(chr(10).join(lines))
 
 

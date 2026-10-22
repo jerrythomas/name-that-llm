@@ -75,12 +75,12 @@ def check_generated_sources() -> list[str]:
 
     for i, (got, want) in enumerate(zip(without_bundle, expected, strict=True)):
         if got.get("cell_type") != want["cell_type"]:
-            problems.append(
-                f"cell {i}: type {got.get('cell_type')!r} != {want['cell_type']!r}"
-            )
+            problems.append(f"cell {i}: type {got.get('cell_type')!r} != {want['cell_type']!r}")
             continue
         if _source(got) != _source(want):
-            problems.append(f"cell {i}: source differs from scripts/make_notebook.py")
+            problems.append(
+                f"cell {i}: source differs from scripts/make_notebook.py (fix with: make notebook)"
+            )
     return problems
 
 
@@ -100,8 +100,7 @@ def check_bundle_sync() -> list[str]:
         got = _source(cells[idx]).rstrip("\n")
         if got != expected:
             problems.append(
-                f"{path.name}: the inline package is out of date — "
-                "run scripts/sync_notebook.py"
+                f"{path.name}: the inline package is out of date — fix with: make notebook"
             )
     return problems
 

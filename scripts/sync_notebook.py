@@ -83,9 +83,7 @@ def build_cell_source() -> str:
                 f"{stem!r} contains a triple single-quote; cannot embed in a raw literal"
             )
 
-    blob = "\n" + "\n".join(
-        f"{MARKER}{stem}\n{src.rstrip()}" for stem, src in sources.items()
-    )
+    blob = "\n" + "\n".join(f"{MARKER}{stem}\n{src.rstrip()}" for stem, src in sources.items())
     order = [name.removesuffix(".py") for name in MODULE_ORDER]
 
     return (
@@ -119,9 +117,7 @@ def sync(notebook_path: Path) -> None:
     )
     if idx is None:
         # Insert immediately before the first code cell so imports resolve.
-        insert_at = next(
-            (i for i, c in enumerate(cells) if c["cell_type"] == "code"), len(cells)
-        )
+        insert_at = next((i for i, c in enumerate(cells) if c["cell_type"] == "code"), len(cells))
         cells.insert(insert_at, new_cell)
         action = f"inserted into {notebook_path.name} at cell {insert_at}"
     else:

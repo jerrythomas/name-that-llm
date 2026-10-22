@@ -40,9 +40,7 @@ def _as_text_array(series: pd.Series) -> np.ndarray:
     return series.fillna("").astype(object).to_numpy(dtype=object)
 
 
-def build_word_pipeline(
-    ngram_range: tuple[int, int] = (1, 2), min_df: int = 2
-) -> Pipeline:
+def build_word_pipeline(ngram_range: tuple[int, int] = (1, 2), min_df: int = 2) -> Pipeline:
     """TF-IDF word n-grams + logistic regression."""
     return Pipeline(
         [
@@ -58,9 +56,7 @@ def build_word_pipeline(
             ),
             (
                 "clf",
-                LogisticRegression(
-                    max_iter=2000, class_weight="balanced", C=4.0
-                ),
+                LogisticRegression(max_iter=2000, class_weight="balanced", C=4.0),
             ),
         ]
     )
@@ -87,9 +83,7 @@ def build_char_pipeline(
             ),
             (
                 "clf",
-                LogisticRegression(
-                    max_iter=2000, class_weight="balanced", C=4.0
-                ),
+                LogisticRegression(max_iter=2000, class_weight="balanced", C=4.0),
             ),
         ]
     )

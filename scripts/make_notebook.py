@@ -6,6 +6,7 @@ author it as plain text and keep the JSON tidy.  Run:
     uv run python scripts/make_notebook.py
     uv run python scripts/sync_notebook.py --notebook notebooks/02_style_and_structure.ipynb
 """
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,11 @@ OUT = ROOT / "notebooks" / "02_style_and_structure.ipynb"
 
 
 def md(text: str) -> dict:
-    return {"cell_type": "markdown", "metadata": {}, "source": text.strip("\n").splitlines(keepends=True)}
+    return {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": text.strip("\n").splitlines(keepends=True),
+    }
 
 
 def code(text: str) -> dict:

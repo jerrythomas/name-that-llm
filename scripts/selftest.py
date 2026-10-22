@@ -159,7 +159,11 @@ def test_in_style_pool_loader():
 
     root = Path(tempfile.mkdtemp())
     pd.DataFrame(
-        {"passage": ["alpha text", "beta text"], "llm": ["gpt-4", "gpt-4"], "question": ["q1", "q1"]}
+        {
+            "passage": ["alpha text", "beta text"],
+            "llm": ["gpt-4", "gpt-4"],
+            "question": ["q1", "q1"],
+        }
     ).to_csv(root / "shard.csv", index=False)
     pd.DataFrame(
         {"text": ["gamma text"], "model": ["claude-opus-4-6"], "prompt_id": ["q2"]}

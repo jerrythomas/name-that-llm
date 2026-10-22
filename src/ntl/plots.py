@@ -34,9 +34,7 @@ def _provider_colors(models: list[str]) -> list[str]:
     return [palette.get(PROVIDERS.get(m, ""), "#888888") for m in models]
 
 
-def plot_label_distribution(
-    dist: pd.DataFrame, save_path: str | Path | None = None
-):
+def plot_label_distribution(dist: pd.DataFrame, save_path: str | Path | None = None):
     """Bar chart of passages per model, coloured by provider.
 
     *dist* is the output of :func:`ntl.explore.label_distribution`.
@@ -66,9 +64,7 @@ def plot_prompt_coverage(pstats: pd.DataFrame, save_path: str | Path | None = No
     return _finish(fig, ax, save_path)
 
 
-def plot_length_by_model(
-    train: pd.DataFrame, save_path: str | Path | None = None
-):
+def plot_length_by_model(train: pd.DataFrame, save_path: str | Path | None = None):
     """Box plot of word counts per model (competition says 40-250 words)."""
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -93,9 +89,7 @@ def plot_length_by_model(
     return _finish(fig, ax, save_path)
 
 
-def plot_feature_heatmap(
-    zscores: pd.DataFrame, save_path: str | Path | None = None
-):
+def plot_feature_heatmap(zscores: pd.DataFrame, save_path: str | Path | None = None):
     """Heatmap of z-scored style features per model (rows = models)."""
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -127,9 +121,7 @@ def plot_length_scatter(train: pd.DataFrame, save_path: str | Path | None = None
     for provider in sorted(set(PROVIDERS.values())):
         models = [m for m, p in PROVIDERS.items() if p == provider]
         sub = d[d["model"].isin(models)]
-        ax.scatter(
-            sub["n_words"], sub["n_chars"], s=8, alpha=0.4, label=provider
-        )
+        ax.scatter(sub["n_words"], sub["n_chars"], s=8, alpha=0.4, label=provider)
     ax.set_xlabel("words")
     ax.set_ylabel("characters")
     ax.set_title("Passage length: words vs characters")
@@ -155,7 +147,7 @@ def plot_distinctive_tokens(
         ax.barh(d["token"], d["score"], color="#4c72b0")
         ax.set_title(model, fontsize=10)
         ax.tick_params(labelsize=8)
-    for ax in axes[len(models):]:
+    for ax in axes[len(models) :]:
         ax.axis("off")
     fig.suptitle("Most distinctive unigrams per model (one-vs-rest chi2)", y=1.001)
     fig.tight_layout()
@@ -191,7 +183,7 @@ def plot_log_odds_fingerprints(
         ax.axvline(0, color="#999999", linewidth=0.8)
         ax.set_title(model, fontsize=10)
         ax.tick_params(labelsize=8)
-    for ax in axes[len(models):]:
+    for ax in axes[len(models) :]:
         ax.axis("off")
     fig.suptitle(
         "Verbal fingerprint per model — log-odds z-score vs the other 17",
@@ -222,7 +214,7 @@ def plot_family_fingerprints(
         ax.axvline(0, color="#999999", linewidth=0.8)
         ax.set_title(family, fontsize=10)
         ax.tick_params(labelsize=8)
-    for ax in axes[len(families):]:
+    for ax in axes[len(families) :]:
         ax.axis("off")
     fig.suptitle("Register per lab — log-odds z-score vs the other labs", y=1.001)
     fig.tight_layout()
@@ -247,8 +239,13 @@ def plot_group_sizes(
     bins = np.arange(0.5, max(sizes.max() + 1.5, 20.5), 1.0)
     ax.hist(sizes, bins=bins, color="#4c72b0", edgecolor="white")
     if expected is not None:
-        ax.axvline(expected + 0.5, color="#c44e52", linestyle="--", linewidth=1.4,
-                   label=f"design size ({expected} passages per prompt)")
+        ax.axvline(
+            expected + 0.5,
+            color="#c44e52",
+            linestyle="--",
+            linewidth=1.4,
+            label=f"design size ({expected} passages per prompt)",
+        )
         ax.legend(fontsize=9)
     ax.set_xlabel("passages in recovered group")
     ax.set_ylabel("number of groups")
@@ -278,11 +275,23 @@ def plot_ablation(
         ax.text(i, value + 0.006, f"{value:.3f}", ha="center", fontsize=9)
         if i > 0:
             delta = value - values[i - 1]
-            ax.text(i, value * 0.5, f"{delta:+.3f}", ha="center", fontsize=9,
-                    color="#c44e52" if delta < 0 else "#2a7f62", fontweight="bold")
+            ax.text(
+                i,
+                value * 0.5,
+                f"{delta:+.3f}",
+                ha="center",
+                fontsize=9,
+                color="#c44e52" if delta < 0 else "#2a7f62",
+                fontweight="bold",
+            )
     if baseline is not None:
-        ax.axhline(baseline, color="#999999", linestyle=":", linewidth=1.2,
-                   label=f"chance ({baseline:.3f})")
+        ax.axhline(
+            baseline,
+            color="#999999",
+            linestyle=":",
+            linewidth=1.2,
+            label=f"chance ({baseline:.3f})",
+        )
         ax.legend(fontsize=9)
 
     ax.set_xticks(range(len(labels)))
@@ -293,17 +302,13 @@ def plot_ablation(
     return _finish(fig, ax, save_path)
 
 
-def plot_view_examples(
-    examples: dict[str, str], save_path: str | Path | None = None
-):
+def plot_view_examples(examples: dict[str, str], save_path: str | Path | None = None):
     """Show what each linguistic view does to the same passage."""
     import textwrap
 
     import matplotlib.pyplot as plt
 
-    fig, axes = plt.subplots(
-        len(examples), 1, figsize=(13, 2.1 * len(examples))
-    )
+    fig, axes = plt.subplots(len(examples), 1, figsize=(13, 2.1 * len(examples)))
     axes = np.atleast_1d(axes)
     for ax, (name, text) in zip(axes, examples.items(), strict=False):
         ax.axis("off")

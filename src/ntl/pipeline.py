@@ -145,9 +145,7 @@ class StackModel:
         if cfg.center:
             if groups is None:
                 groups = infer_groups(texts, k=cfg.group_k, cut=cfg.group_cut)
-            X = center_within(
-                X, np.asarray(groups), cfg.center_min_size, cfg.center_max_size
-            )
+            X = center_within(X, np.asarray(groups), cfg.center_min_size, cfg.center_max_size)
         self.clf_ = self._make_classifier()
         self.clf_.fit(X, np.asarray(y, dtype=object))
         self.classes_ = np.asarray(self.clf_.classes_, dtype=object)
@@ -165,9 +163,7 @@ class StackModel:
             groups = infer_groups(texts, k=cfg.group_k, cut=cfg.group_cut)
         groups = np.asarray(groups)
         if cfg.center:
-            X = center_within(
-                X, groups, cfg.center_min_size, cfg.center_max_size
-            )
+            X = center_within(X, groups, cfg.center_min_size, cfg.center_max_size)
         # The classifier's own class order is the column order of ``classes_``
         # (both come from ``clf_.classes_``), so the scores need no remapping.
         scores = np.asarray(self.clf_.decision_function(X), dtype=float)
@@ -175,9 +171,7 @@ class StackModel:
             scores = np.column_stack([-scores, scores])
         return scores, groups
 
-    def predict(
-        self, texts: Sequence[str], groups: np.ndarray | None = None
-    ) -> np.ndarray:
+    def predict(self, texts: Sequence[str], groups: np.ndarray | None = None) -> np.ndarray:
         """Label every passage in the pool."""
         cfg = self.config
         scores, groups = self.decision_function(texts, groups)
