@@ -112,6 +112,7 @@ src/ntl/
   submit.py    # build / validate / write submission.parquet
 notebooks/01_eda.ipynb              # end-to-end walkthrough (self-contained)
 notebooks/02_style_and_structure.ipynb  # the hypothesis-driven exploration
+docs/HYPOTHESIS.md         # the facet programme: hypotheses, constraints, tracker
 scripts/download_data.py   # kaggle CLI download + unzip
 scripts/build_bundle.py    # -> dist/ntl_bundle.py (flat offline bundle)
 scripts/sync_notebook.py   # inline src/ntl into a notebook's bootstrap cell
@@ -267,6 +268,12 @@ uv run jupyter lab        # then open notebooks/01_eda.ipynb
 ```
 
 ## Roadmap
+
+> The facet programme — every candidate style metric, the prompt-side
+> constraint that rules half of them out at test time, the five submission
+> variants, and the local-vs-public tracker — is specified in
+> [`docs/HYPOTHESIS.md`](docs/HYPOTHESIS.md). Update its experiment register
+> after every submission.
 
 1. ~~Group CV by `prompt_id` for an honest unseen-prompt estimate.~~ done
 2. ~~Topic-free views + prompt centring + group assignment.~~ done
