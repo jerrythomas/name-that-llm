@@ -36,9 +36,11 @@ from scipy import sparse
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.model_selection import GroupKFold
+from sklearn.preprocessing import StandardScaler, normalize
 from sklearn.svm import LinearSVC
 
 from .decision import assign_within_groups, sinkhorn
+from .facets import facet_frame
 from .groups import infer_groups
 from .views import DEFAULT_VIEWS, fit_views, transform_views
 
@@ -62,6 +64,15 @@ class StackConfig:
     #: "pool" groups the *whole* set of passages at once (what happens at
     #: test time); "fold" groups each cross-validation fold separately.
     grouping_scope: str = "pool"
+    #: Numeric facet families (or individual columns) appended as one extra
+    #: block.  See :mod:`ntl.facets`.  Empty means "views only".
+    facets: tuple[str, ...] = ()
+    #: Relative weight of the facet block against one view block.  Each block
+    #: is row-normalised, so 1.0 makes the facets worth one view.
+    facet_weight: float = 1.0
+    #: Subtract the group mean from the facet block as well (the same
+    #: "the prompt is not the author" move, applied to the numbers).
+    facet_center: bool = True
 
 
 def center_within(
@@ -101,6 +112,30 @@ def center_within(
     return (X - membership @ means).tocsr()
 
 
+def center_dense_within(
+    X: np.ndarray,
+    groups: np.ndarray,
+    min_size: int = 2,
+    max_size: int | None = 18,
+) -> np.ndarray:
+    """Dense counterpart of :func:`center_within`, for numeric facet blocks.
+
+    Same rule, same exceptions: groups smaller than *min_size* or larger than
+    *max_size* keep their raw values.  A group of one has no mean worth
+    removing; an oversized group is probably two prompts merged, and its mean
+    is therefore meaningful rather than nuisance.
+    """
+    out = np.array(X, dtype=float, copy=True)
+    groups = np.asarray(groups)
+    _, inverse, counts = np.unique(groups, return_inverse=True, return_counts=True)
+    for index in np.flatnonzero(counts >= min_size):
+        if max_size is not None and counts[index] > max_size:
+            continue
+        rows = np.flatnonzero(inverse == index)
+        out[rows] -= out[rows].mean(axis=0, keepdims=True)
+    return out
+
+
 class StackModel:
     """The full pipeline, fit on labelled passages and applied to a pool."""
 
@@ -109,6 +144,7 @@ class StackModel:
         self.classes_: np.ndarray | None = None
         self.vecs_: dict | None = None
         self.clf_: object | None = None
+        self.scaler_: StandardScaler | None = None
 
     # -- fitting -----------------------------------------------------------
     def _make_classifier(self):
@@ -127,6 +163,35 @@ class StackModel:
             random_state=cfg.random_state,
         )
 
+    # -- feature assembly --------------------------------------------------
+    def _facet_block(
+        self, texts: Sequence[str], groups: np.ndarray, fit: bool
+    ) -> sparse.csr_matrix:
+        """Standardise, row-normalise and (optionally) centre the numeric block."""
+        cfg = self.config
+        frame = facet_frame(texts, groups, cfg.facets).to_numpy(dtype=float)
+        frame = np.nan_to_num(frame, nan=0.0, posinf=0.0, neginf=0.0)
+        if fit:
+            self.scaler_ = StandardScaler().fit(frame)
+        assert self.scaler_ is not None, "fit the facet scaler first"
+        block = normalize(self.scaler_.transform(frame))
+        if cfg.facet_center and not cfg.center:
+            block = center_dense_within(block, groups, cfg.center_min_size, cfg.center_max_size)
+        return sparse.csr_matrix(block * cfg.facet_weight)
+
+    def _feature_matrix(
+        self, texts: Sequence[str], groups: np.ndarray | None, fit: bool
+    ) -> sparse.csr_matrix:
+        cfg = self.config
+        X = transform_views(self.vecs_, texts, cfg.views)
+        if cfg.facets:
+            assert groups is not None, "facets need a grouping"
+            X = sparse.hstack([X, self._facet_block(texts, groups, fit)], format="csr")
+        if cfg.center:
+            assert groups is not None, "centring needs a grouping"
+            X = center_within(X, groups, cfg.center_min_size, cfg.center_max_size)
+        return X
+
     def fit(
         self,
         texts: Sequence[str],
@@ -141,11 +206,9 @@ class StackModel:
         """
         cfg = self.config
         self.vecs_ = fit_views(texts, cfg.views)
-        X = transform_views(self.vecs_, texts, cfg.views)
-        if cfg.center:
-            if groups is None:
-                groups = infer_groups(texts, k=cfg.group_k, cut=cfg.group_cut)
-            X = center_within(X, np.asarray(groups), cfg.center_min_size, cfg.center_max_size)
+        if groups is None and (cfg.center or cfg.facets):
+            groups = infer_groups(texts, k=cfg.group_k, cut=cfg.group_cut)
+        X = self._feature_matrix(texts, None if groups is None else np.asarray(groups), fit=True)
         self.clf_ = self._make_classifier()
         self.clf_.fit(X, np.asarray(y, dtype=object))
         self.classes_ = np.asarray(self.clf_.classes_, dtype=object)
@@ -158,12 +221,10 @@ class StackModel:
         """Scores for every class, plus the group id of every passage."""
         cfg = self.config
         assert self.vecs_ is not None and self.clf_ is not None, "fit first"
-        X = transform_views(self.vecs_, texts, cfg.views)
         if groups is None:
             groups = infer_groups(texts, k=cfg.group_k, cut=cfg.group_cut)
         groups = np.asarray(groups)
-        if cfg.center:
-            X = center_within(X, groups, cfg.center_min_size, cfg.center_max_size)
+        X = self._feature_matrix(texts, groups, fit=False)
         # The classifier's own class order is the column order of ``classes_``
         # (both come from ``clf_.classes_``), so the scores need no remapping.
         scores = np.asarray(self.clf_.decision_function(X), dtype=float)

@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_NOTEBOOK = ROOT / "notebooks" / "01_eda.ipynb"
 TAG = "ntl-bundle"
 MARKER = "# %% module: "
-VERSION = "0.3.0"  # keep in sync with pyproject.toml
+VERSION = "0.4.0"  # keep in sync with pyproject.toml
 
 CELL_TEMPLATE = '''# ==== ntl package (INLINED — auto-generated, do not edit) ====
 # Source of truth: src/ntl/*.py
@@ -132,9 +132,32 @@ def sync(notebook_path: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--notebook", type=Path, default=DEFAULT_NOTEBOOK)
+    parser.add_argument(
+        "--notebook",
+        type=Path,
+        action="append",
+        help="notebook to sync; repeatable (default: notebooks/01_eda.ipynb)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="sync every notebook in notebooks/",
+    )
     args = parser.parse_args()
-    sync(args.notebook)
+
+    if args.all:
+        # Only the numbered deliverables (01, 02, 03, 04_*).  Other notebooks
+        # in the folder may be scratch or personal work and must not be touched.
+        paths = sorted((ROOT / "notebooks").glob("0*.ipynb"))
+    elif args.notebook:
+        paths = args.notebook
+    else:
+        paths = [DEFAULT_NOTEBOOK]
+    if not paths:
+        print("no notebooks found")
+        return 1
+    for path in paths:
+        sync(path)
     return 0
 
 

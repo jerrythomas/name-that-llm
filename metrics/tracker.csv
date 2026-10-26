@@ -1,0 +1,6 @@
+variant,config_hash,views,facets,facet_weight,local_cv,local_folds,public_lb,n_train,n_pool,run_at,notes
+v1,63096e69f6,char+word+funcon,-,1.0,0.446371,3,,2699,0,2026-10-26T12:43:03Z,control
+v2,e7ad9f9b08,char+word+funcon,punctuation,1.0,0.432667,3,,2699,0,2026-10-26T12:44:30Z,punctuation only
+v3,766916c9f3,char+word+funcon,length+lexical+punctuation+person+hedging+opener,1.0,0.473038,3,,2699,0,2026-10-26T12:46:12Z,voice + punctuation
+v4,d26fa08142,char+word+funcon,length+lexical+person+hedging+opener+group,1.0,0.471951,3,,2699,0,2026-10-26T12:47:49Z,voice + group deviation
+v5,39ee590761,char+word+funcon,length+lexical+punctuation+structure+emoji+person+hedging+citation+opener+group,1.0,0.489744,3,,2699,0,2026-10-26T12:49:22Z,all facets

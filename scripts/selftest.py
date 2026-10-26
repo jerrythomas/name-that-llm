@@ -19,8 +19,23 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from ntl import baseline, data, decision, groups, pipeline, stylometry, submit, views  # noqa: E402  # noqa: E402
+import make_variants  # noqa: E402
+
+from ntl import (  # noqa: E402
+    baseline,
+    data,
+    decision,
+    facets,
+    groups,
+    measure,
+    pipeline,
+    stylometry,
+    submit,
+    tracker,
+    views,
+)
 
 CHECKS: list = []
 
@@ -231,6 +246,153 @@ def test_stack_shapes():
     assert len(groups) == len(texts)
     preds = model.predict(texts, groups=groups)
     assert len(preds) == len(texts)
+
+
+@check
+def test_facets_shape():
+    """Response facets are numeric, finite and complete; group facets are relative."""
+    train = _synthetic_train(3)
+    texts = train["text"].to_numpy(dtype=object)
+    g = train["prompt_id"].to_numpy(dtype=object)
+    base = facets.response_facets(texts)
+    assert base.shape == (len(texts), len(facets.ALL_RESPONSE_FACETS))
+    assert np.isfinite(base.to_numpy(dtype=float)).all()
+
+    frame = facets.group_facets(texts, g, base)
+    assert frame.shape == (len(texts), len(facets.facet_columns(["group"])))
+    assert np.isfinite(frame.to_numpy(dtype=float)).all()
+
+
+@check
+def test_group_facets_are_group_relative():
+    """Within a group, the z-scores average to zero and the length ratio to one."""
+    from ntl.config import LABELS
+
+    texts, groups_true = [], []
+    for p in range(2):
+        for i, _label in enumerate(LABELS):
+            texts.append(("word " * (5 + i)) + f"model{i}")
+            groups_true.append(f"p{p}")
+    texts = np.array(texts, dtype=object)
+    groups_true = np.array(groups_true, dtype=object)
+
+    frame = facets.facet_frame(texts, groups_true, ["group"]).to_numpy(dtype=float)
+    frame = pd.DataFrame(frame, columns=facets.facet_columns(["group"]))
+    frame["group"] = groups_true
+    means = frame.groupby("group")[["g_word_z", "g_len_ratio"]].mean()
+    assert np.allclose(means["g_word_z"], 0.0, atol=1e-6), means
+    assert np.allclose(means["g_len_ratio"], 1.0, atol=1e-6), means
+
+
+@check
+def test_facet_detection():
+    """The probes really see an em dash, a bullet, bold text and an emoji."""
+    text = "A list — with a colon:\n- one\n- two\n\n**bold** 😀</s>"
+    row = facets.response_facets([text]).iloc[0]
+    assert row["f_punct_emdash"] > 0
+    assert row["f_md_bullet"] > 0
+    assert row["f_md_bold"] > 0
+    assert row["f_emoji_rate"] > 0
+
+
+@check
+def test_eta2_separates_author_from_prompt():
+    """Within-group η² is high for an author effect and ~0 for a prompt proxy."""
+    from ntl.config import LABELS
+
+    rng = np.random.default_rng(0)
+    n_groups = 30
+    groups_true = np.repeat(np.arange(n_groups), len(LABELS))
+    labels = np.tile(np.array(LABELS, dtype=object), n_groups)
+    prompt_effect = np.repeat(rng.normal(0, 5, n_groups), len(LABELS))
+    author_effect = np.tile(np.linspace(-2, 2, len(LABELS)), n_groups)
+
+    proxy = prompt_effect + rng.normal(0, 0.1, len(groups_true))
+    signal = prompt_effect + author_effect + rng.normal(0, 0.1, len(groups_true))
+
+    assert measure.within_group_eta2(proxy, labels, groups_true) < 0.10
+    assert measure.within_group_eta2(signal, labels, groups_true) > 0.50
+
+
+@check
+def test_prepare_training_pool():
+    """Unknown labels, train duplicates and prompt-id collisions are removed."""
+    train = _synthetic_train(1)
+    pool = pd.DataFrame(
+        {
+            "id": ["a", "b", "c", "d"],
+            "prompt_id": ["p0", "p0", "", "x"],
+            "text": [train["text"].iloc[0], "fresh pool text", "orphan text", "other text"],
+            "model": ["gpt-5.5", "gpt-5.5", "gpt-5.5", "gpt-4"],
+        }
+    )
+    clean = data.prepare_training_pool(pool, train_texts=train["text"])
+    assert len(clean) == 2, clean
+    assert set(clean["model"]) == {"gpt-5.5"}
+    assert clean["prompt_id"].tolist()[0].startswith("pool:")
+    assert clean["prompt_id"].tolist()[1].startswith("pool:row:")
+    assert clean["id"].tolist() == ["b", "c"]
+
+
+@check
+def test_stack_with_facets():
+    """The facet block plugs into the stack without breaking shapes."""
+    train = _synthetic_train(6)
+    texts = train["text"].to_numpy(dtype=object)
+    y = train["model"].to_numpy(dtype=object)
+    g = train["prompt_id"].to_numpy(dtype=object)
+    cfg = pipeline.StackConfig(
+        views=("funcon",), facets=("length", "punctuation", "group"), facet_weight=1.0
+    )
+    model = pipeline.StackModel(cfg)
+    model.fit(texts, y, groups=g)
+    scores, recovered = model.decision_function(texts)
+    assert scores.shape == (len(texts), len(model.classes_))
+    assert len(recovered) == len(texts)
+    assert len(model.predict(texts, groups=recovered)) == len(texts)
+
+
+@check
+def test_tracker_roundtrip():
+    """Rows append, the report keeps the latest run per variant, gaps are computed."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "metrics" / "tracker.csv"
+        first = tracker.make_row("v1", ("char", "word"), local_cv=0.40, local_folds=3, n_train=100)
+        second = tracker.make_row("v1", ("char", "word"), local_cv=0.45, local_folds=3, n_train=100)
+        tracker.append_csv(path, first)
+        tracker.append_csv(path, second)
+        assert len(tracker.load(path)) == 2
+
+        report = tracker.report(path)
+        assert len(report) == 1
+        assert report.loc[0, "local_cv"] == 0.45
+
+        other = Path(tmp) / "download.csv"
+        tracker.append_csv(other, second)
+        tracker.append_csv(other, tracker.make_row("v2", ("word",), local_cv=0.30))
+        added = tracker.merge(path, other)
+        assert added == 1, added
+        assert len(tracker.load(path)) == 3
+
+
+@check
+def test_variant_ladder():
+    """There are five variants, each valid, unique, and self-contained."""
+    variants = make_variants.VARIANTS
+    assert len(variants) == 5
+    assert len({v["id"] for v in variants}) == 5
+    assert len({v["slug"] for v in variants}) == 5
+
+    for variant in variants:
+        assert set(variant["views"]) <= set(views.VIEWS), variant
+        facets.facet_columns(variant["facets"])  # raises on an unknown name
+        cells = make_variants.cells_for(variant)
+        assert len(cells) >= 6
+        assert cells[0]["cell_type"] == "markdown"
+        assert any(c["cell_type"] == "code" for c in cells)
+
+    hashes = {tracker.config_hash(v["views"], v["facets"]) for v in variants}
+    assert len(hashes) == 5, hashes
 
 
 def _synthetic_train(n_prompts: int = 20) -> pd.DataFrame:

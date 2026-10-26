@@ -1018,19 +1018,25 @@ full stack, predicts on the test pool, and writes `submission.parquet`.
         """
 # 1. Load train + optional in-style pool
 train = data.load_train()
-pool = data.load_in_style_pool()
-print(data.describe_in_style_pool(pool))  # rows, per-model counts, label_coverage
+raw_pool = data.load_in_style_pool()
+print("raw pool:", data.describe_in_style_pool(raw_pool))  # rows, per-model counts, label_coverage
+
+# A raw pool is not drop-in training data: filter it to the 18 labels, drop
+# passages that duplicate the competition train set, and namespace its prompt
+# ids so a pool prompt can never merge with a train prompt.
+pool = data.prepare_training_pool(raw_pool, train_texts=data.as_text_array(train["text"]))
+print(f"usable pool: {len(pool)} rows")
 
 # 2. Combine
 import numpy as np
 if not pool.empty:
-    texts = np.concatenate([train["text"].to_numpy(dtype=object), pool["text"].to_numpy(dtype=object)])
-    labels = np.concatenate([train["model"].to_numpy(dtype=object), pool["model"].to_numpy(dtype=object)])
-    group_ids = np.concatenate([train["prompt_id"].to_numpy(dtype=object), pool["prompt_id"].to_numpy(dtype=object)])
+    texts = np.concatenate([data.as_text_array(train["text"]), data.as_text_array(pool["text"])])
+    labels = np.concatenate([data.as_text_array(train["model"]), data.as_text_array(pool["model"])])
+    group_ids = np.concatenate([data.as_text_array(train["prompt_id"]), data.as_text_array(pool["prompt_id"])])
 else:
-    texts = train["text"].to_numpy(dtype=object)
-    labels = train["model"].to_numpy(dtype=object)
-    group_ids = train["prompt_id"].to_numpy(dtype=object)
+    texts = data.as_text_array(train["text"])
+    labels = data.as_text_array(train["model"])
+    group_ids = data.as_text_array(train["prompt_id"])
 
 print(f"Training on {len(texts)} passages ({len(train)} train + {len(pool)} pool)")
 

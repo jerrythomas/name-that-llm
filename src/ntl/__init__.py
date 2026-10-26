@@ -28,7 +28,7 @@ from .views import (
     shape_transform,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "DATA_DIR",

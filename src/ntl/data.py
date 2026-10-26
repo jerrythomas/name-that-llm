@@ -223,6 +223,56 @@ def describe_in_style_pool(pool: pd.DataFrame) -> dict:
     }
 
 
+def prepare_training_pool(
+    pool: pd.DataFrame,
+    labels: Sequence[str] | None = None,
+    train_texts: Sequence[str] | None = None,
+    prompt_prefix: str = "pool:",
+) -> pd.DataFrame:
+    """Make a public in-style pool safe to concatenate with the train set.
+
+    A raw pool is *not* drop-in training data.  Four things go wrong if it is
+    used as-is, and all four are silent:
+
+    1. **Unknown labels.**  Public pools often carry extra models (``gpt-4``,
+       ``claude-2``, ...).  Training on them adds classes the competition never
+       scores and makes the submission invalid.
+    2. **Duplicate passages.**  A pool may re-publish the competition's own
+       train rows.  Training on a copy would inflate CV and leak.
+    3. **Colliding prompt ids.**  ``prompt_007`` in the pool is almost
+       certainly not ``prompt_007`` in train; merging them would centre two
+       different prompts together.
+    4. **Missing prompt ids.**  Some pools ship text + model only.  Giving
+       every such row its *own* group keeps it in the classifier while
+       excluding it from group centring (groups of one are not centred).
+
+    Returns a frame with the usual ``id``, ``prompt_id``, ``text``, ``model``
+    columns, deduplicated and label-filtered.  Safe on an empty frame.
+    """
+    empty = pd.DataFrame(columns=["id", "prompt_id", "text", "model"])
+    if pool is None or pool.empty:
+        return empty
+
+    known = tuple(labels) if labels is not None else tuple(LABELS)
+    frame = pool.copy()
+    frame = frame[frame["model"].astype(str).isin(known)]
+    frame = frame[frame["text"].astype(str).str.len() > 0]
+
+    if train_texts is not None:
+        seen = set(map(str, train_texts))
+        frame = frame[~frame["text"].astype(str).isin(seen)]
+
+    frame = frame.reset_index(drop=True)
+    prompt = frame["prompt_id"].fillna("").astype(str)
+    namespaced = [
+        f"{prompt_prefix}{value}" if value else f"{prompt_prefix}row:{i}"
+        for i, value in enumerate(prompt)
+    ]
+    frame["prompt_id"] = namespaced
+    frame["id"] = frame["id"].astype(str)
+    return frame[["id", "prompt_id", "text", "model"]].reset_index(drop=True)
+
+
 def mount_summary(max_depth: int = 3) -> list[str]:
     """A readable dump of the Kaggle mount.
 

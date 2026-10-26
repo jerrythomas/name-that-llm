@@ -3,16 +3,17 @@
 
 Three invariants, all cheap:
 
-1. ``notebooks/02_style_and_structure.ipynb`` contains exactly the cell
-   *sources* that ``scripts/make_notebook.py`` generates.  Outputs and
-   execution counts are ignored — they are runtime artefacts, not source.
+1. Every generated notebook contains exactly the cell *sources* that its
+   builder (``make_notebook``, ``make_facets_notebook``, ``make_variants``)
+   generates.  Outputs and execution counts are ignored — they are runtime
+   artefacts, not source.
 2. Every notebook carrying the ``ntl-bundle`` tag embeds exactly the current
    ``src/ntl`` sources, so the inline copy cannot drift from the package.
 3. The embedded package really imports and exposes the expected submodules.
 
-Together these keep the repository honest: the notebook builder is the
-single source of truth for notebook 02, ``src/ntl`` is the single source of
-truth for the package, and the two are provably in sync.
+Together these keep the repository honest: the builders are the single source
+of truth for the notebooks, ``src/ntl`` is the single source of truth for the
+package, and the two are provably in sync.
 
 Usage:
     uv run python scripts/check_notebooks.py
@@ -28,15 +29,40 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import make_facets_notebook  # noqa: E402
 import make_notebook  # noqa: E402
+import make_variants  # noqa: E402
 import sync_notebook  # noqa: E402
 
 BUNDLE_TAG = sync_notebook.TAG
 NOTEBOOKS = [
     ROOT / "notebooks" / "01_eda.ipynb",
     ROOT / "notebooks" / "02_style_and_structure.ipynb",
+    ROOT / "notebooks" / "03_facets.ipynb",
+    *[make_variants.path_for(variant) for variant in make_variants.VARIANTS],
 ]
-GENERATED = ROOT / "notebooks" / "02_style_and_structure.ipynb"
+
+# (notebook, callable returning the expected cells, builder path)
+GENERATED: list[tuple[Path, object, str]] = [
+    (
+        ROOT / "notebooks" / "02_style_and_structure.ipynb",
+        lambda: make_notebook.CELLS,
+        "scripts/make_notebook.py",
+    ),
+    (
+        ROOT / "notebooks" / "03_facets.ipynb",
+        lambda: make_facets_notebook.CELLS,
+        "scripts/make_facets_notebook.py",
+    ),
+    *[
+        (
+            make_variants.path_for(variant),
+            (lambda variant=variant: make_variants.cells_for(variant)),
+            "scripts/make_variants.py",
+        )
+        for variant in make_variants.VARIANTS
+    ],
+]
 
 
 def _load(path: Path) -> dict:
@@ -56,31 +82,34 @@ def _bundle_index(cells: list[dict]) -> int | None:
 
 
 def check_generated_sources() -> list[str]:
-    """Notebook 02 must contain exactly the cells make_notebook.py generates."""
+    """Every generated notebook must match its builder cell for cell."""
     problems: list[str] = []
-    if not GENERATED.exists():
-        return [f"{GENERATED.relative_to(ROOT)} is missing"]
-
-    cells = _load(GENERATED)["cells"]
-    idx = _bundle_index(cells)
-    without_bundle = cells if idx is None else cells[:idx] + cells[idx + 1 :]
-    expected = make_notebook.CELLS
-
-    if len(without_bundle) != len(expected):
-        problems.append(
-            f"notebook 02 has {len(without_bundle)} cells "
-            f"(excluding the bundle) but the builder generates {len(expected)}"
-        )
-        return problems
-
-    for i, (got, want) in enumerate(zip(without_bundle, expected, strict=True)):
-        if got.get("cell_type") != want["cell_type"]:
-            problems.append(f"cell {i}: type {got.get('cell_type')!r} != {want['cell_type']!r}")
+    for path, expected_cells, builder in GENERATED:
+        name = path.relative_to(ROOT)
+        if not path.exists():
+            problems.append(f"{name} is missing")
             continue
-        if _source(got) != _source(want):
+
+        cells = _load(path)["cells"]
+        idx = _bundle_index(cells)
+        without_bundle = cells if idx is None else cells[:idx] + cells[idx + 1 :]
+        expected = expected_cells()
+
+        if len(without_bundle) != len(expected):
             problems.append(
-                f"cell {i}: source differs from scripts/make_notebook.py (fix with: make notebook)"
+                f"{name} has {len(without_bundle)} cells (excluding the bundle) "
+                f"but {builder} generates {len(expected)}"
             )
+            continue
+
+        for i, (got, want) in enumerate(zip(without_bundle, expected, strict=True)):
+            if got.get("cell_type") != want["cell_type"]:
+                problems.append(f"{name} cell {i}: type mismatch")
+                continue
+            if _source(got) != _source(want):
+                problems.append(
+                    f"{name} cell {i}: source differs ({builder}); fix with: make notebook"
+                )
     return problems
 
 
@@ -107,16 +136,31 @@ def check_bundle_sync() -> list[str]:
 
 def check_bundle_imports() -> list[str]:
     """The inline package must actually import in a clean interpreter."""
+    modules = [
+        "config",
+        "data",
+        "features",
+        "views",
+        "facets",
+        "groups",
+        "decision",
+        "pipeline",
+        "measure",
+        "tracker",
+        "explore",
+        "plots",
+        "baseline",
+        "stylometry",
+        "submit",
+    ]
     probe = (
         sync_notebook.build_cell_source()
         + "\nimport ntl\n"
-        + "import ntl.config, ntl.data, ntl.views, ntl.groups\n"
-        + "import ntl.decision, ntl.pipeline, ntl.explore, ntl.plots\n"
-        + "import ntl.baseline, ntl.stylometry, ntl.features, ntl.submit\n"
+        + "".join(f"import ntl.{name}\n" for name in modules)
         + "print('NTL_BUNDLE_OK')\n"
     )
     proc = subprocess.run(
-        [sys.executable, "-c", probe], capture_output=True, text=True, timeout=120
+        [sys.executable, "-c", probe], capture_output=True, text=True, timeout=180
     )
     if proc.returncode != 0 or "NTL_BUNDLE_OK" not in proc.stdout:
         tail = (proc.stderr or proc.stdout).strip().splitlines()
@@ -127,7 +171,7 @@ def check_bundle_imports() -> list[str]:
 
 def main() -> int:
     checks = [
-        ("notebook 02 matches scripts/make_notebook.py", check_generated_sources),
+        ("generated notebooks match their builders", check_generated_sources),
         ("inline packages match src/ntl", check_bundle_sync),
         ("inline package imports cleanly", check_bundle_imports),
     ]

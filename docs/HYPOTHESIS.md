@@ -252,11 +252,57 @@ last three columns after every submission.
 
 | ID | Combination | Hypothesis | Local CV | Public LB | Δ | Verdict |
 |----|-------------|-----------|----------|-----------|---|---------|
-| v1 | `char + word + funcon` (control) | reference point for every other variant | TBD | TBD | | |
-| v2 | v1 + `structure` + `punctuation` + `emoji` | formatting is an author habit (F2, F5, F6) | TBD | TBD | | |
-| v3 | `funcon` + `length` + `lexical` + `person` + `hedging` | a content-free voice model (F3, F4, F12) | TBD | TBD | | |
-| v4 | v1 + `group` facets | deviation from the reconstructed prompt matters (F8/F9) | TBD | TBD | | |
-| v5 | v1 + all response + `group` facets | the full hypothesised signal set | TBD | TBD | | |
+| v1 | `char + word + funcon` (control) | reference point for every other variant | 0.4464 | TBD | | |
+| v2 | v1 + `punctuation` | does the strongest single family add on its own? | 0.4327 | TBD | | |
+| v3 | v1 + voice + `punctuation` | interaction: cue + register (F3/F4/F12 + F2) | 0.4730 | TBD | | |
+| v4 | v1 + voice + `group` | interaction: absolute voice + relational deviation (F3/F4 + F8/F9) | 0.4720 | TBD | | |
+| v5 | v1 + all response + `group` facets | union of the interactions | 0.4897 | TBD | | |
+
+`voice` = `length`, `lexical`, `person`, `hedging`, `opener`. Local CV is
+3-fold and the folds are identical across variants, so the differences are
+paired, not independent estimates.
+
+**Facet screening (3-fold, train only).** The two bases tell different
+stories, and the difference is the main result:
+
+| Configuration | Grouped CV | Δ |
+|---------------|-----------|---|
+| `funcon` only | 0.3382 | — |
+| `funcon` + punctuation | 0.3593 | +0.021 |
+| `funcon` + voice (no punctuation) | 0.3845 | +0.046 |
+| `funcon` + group | 0.3768 | +0.039 |
+| `funcon` + all facets | 0.4401 | +0.102 |
+| base (char + word + funcon) | 0.4464 | — |
+| base + punctuation | 0.4327 | −0.014 |
+| base + voice | 0.4386 | −0.008 |
+| base + voice + punctuation | **0.4730** | +0.027 |
+| base + voice + group | **0.4720** | +0.026 |
+| base + all facets | **0.4897** | +0.043 |
+
+On the weak `funcon` base the families look additive; on the full stack no
+single family beats the control, but the pairs do. The facet block is therefore
+a **joint representation**, not a set of independent features: punctuation is
+already in the char n-grams, and group deviation is largely absorbed by prompt
+centring, but both become usable once the voice block supplies register
+context.
+
+**Facet families alone (5-fold, prompt-grouped):**
+
+| Family | Balanced accuracy |
+|--------|-------------------|
+| punctuation | 0.245 |
+| length | 0.200 |
+| group | 0.186 |
+| lexical | 0.172 |
+| person | 0.092 |
+| hedging | 0.090 |
+| opener | 0.085 |
+| structure | 0.059 |
+| emoji | 0.056 |
+| citation | 0.056 |
+
+Chance is 0.0556. Structure, emoji and citation are null on this corpus
+(no markdown, no emoji, no citations); the signal was removed upstream.
 
 Already-measured ablations that constrain the search space:
 
@@ -287,7 +333,12 @@ Append one line per experiment. Date, change, evidence, decision.
 | 2026-10-2x | Tune grouping at pool scale (`k=3, cut=0.88`) | ARI 0.967, purity 0.973 | keep, never tune on a fold |
 | 2026-10-2x | Rebalance output to test mix | ~0.10 under skew | rejected |
 | 2026-10-2x | Two-stage lab → model cascade | 0.057 | rejected |
-| 2026-10-26 | Facet layer implemented (`src/ntl/facets.py`) | not yet measured | pending EDA |
+| 2026-10-26 | Facet layer implemented (`src/ntl/facets.py`) | 52 response + 8 group facets, all finite | ship |
+| 2026-10-26 | Select facets on within-group η², not MI | em dash η² 0.397; word count η² 0.011; MI 0.0 for discrete person/opener facets | select on η² |
+| 2026-10-26 | Measure every family alone (grouped CV) | punctuation 0.245, length 0.200, group 0.186, lexical 0.172, structure/emoji/citation ≈ chance | keep the top four, retire the null three |
+| 2026-10-26 | Facets on a `funcon` base | punctuation +0.021, voice +0.046, group +0.039, all +0.102 | looks additive |
+| 2026-10-26 | Facets on the full base | punctuation −0.014, voice −0.008, group −0.011, voice+punct +0.027, voice+group +0.026, all +0.043 | not additive — interactions only |
+| 2026-10-26 | Pool safety (`data.prepare_training_pool`) | filters unknown labels, drops train duplicates, namespaces prompt ids | mandatory before any pool run |
 
 ---
 

@@ -50,7 +50,7 @@ jobs:
         run: uv run python scripts/build_bundle.py
 
   # There is deliberately no "rebuild and commit" job.  The check job above
-  # already proves that the committed notebooks are exactly what
-  # scripts/make_notebook.py and src/ntl produce, so a red build is the
-  # signal to run `make notebook` locally.  Rebuilding here instead would
-  # commit notebooks stripped of their stored outputs.
+  # already proves that the committed notebooks are exactly what the builders
+  # (make_notebook, make_facets_notebook, make_variants) and src/ntl produce,
+  # so a red build is the signal to run `make notebook` locally.  Rebuilding
+  # here instead would commit notebooks stripped of their stored outputs.
