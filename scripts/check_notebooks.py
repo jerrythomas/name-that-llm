@@ -159,8 +159,15 @@ def check_bundle_imports() -> list[str]:
         + "".join(f"import ntl.{name}\n" for name in modules)
         + "print('NTL_BUNDLE_OK')\n"
     )
+    # Feed the probe on stdin, not with ``-c``: the bundle is ~130 KB, and
+    # Linux caps a single argv entry at 128 KB (MAX_ARG_STRLEN).  ``-c`` works
+    # on macOS and fails on the CI runner with E2BIG.
     proc = subprocess.run(
-        [sys.executable, "-c", probe], capture_output=True, text=True, timeout=180
+        [sys.executable, "-"],
+        input=probe,
+        capture_output=True,
+        text=True,
+        timeout=180,
     )
     if proc.returncode != 0 or "NTL_BUNDLE_OK" not in proc.stdout:
         tail = (proc.stderr or proc.stdout).strip().splitlines()
